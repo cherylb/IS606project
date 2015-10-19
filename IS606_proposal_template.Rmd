@@ -1,0 +1,133 @@
+```{r include=FALSE, cache=FALSE}
+# DO NOT REMOVE
+# THIS IS FOR SETTING SOME PLOTTING PARAMETERS SO THAT YOUR PLOTS DON'T TAKE UP TOO MUCH SPACE
+# IF YOU WOULD LIKE TO CHANGE THESE, SEE HELP FILES ON THE par() FUNCTION
+# OR ASK FOR HELP
+library(knitr)
+## set global chunk options
+opts_chunk$set(fig.path='figure/manual-', cache.path='cache/manual-', fig.align='center', fig.show='hold', par=TRUE)
+## tune details of base graphics (http://yihui.name/knitr/hooks)
+knit_hooks$set(par=function(before, options, envir){
+if (before && options$fig.show!='none') par(mar=c(4,4,.2,.1),cex.lab=.95,cex.axis=.9,mgp=c(2,.7,0),tcl=-.3)
+})
+```
+
+```{r}
+# load data
+library(dplyr)
+library(reshape2)
+wbdata = read.csv("C:/Users/Cheryl/Documents/GitHub/IS606/WoldBankData.csv", header = TRUE)
+dfwb <- data.frame(wbdata, stringsAsFactors = False)%>%select(-Series.Name, -X2015)
+
+dfwbm <- melt(dfwb,id.vars = c("Series.Code","Country.Name","Country.Code"))%>%filter(value!="NA")
+dffemale <- dfwbm%>%filter(Series.Code == "SE.PRM.CMPT.FE.ZS")%>%select(-Series.Code)
+dfmale <- dfwbm%>%filter(Series.Code == "SE.PRM.CMPT.MA.ZS")%>%select(-Series.Code)
+dfpov <- dfwbm%>%filter(Series.Code == "SI.POV.DDAY")%>%select(-Series.Code)
+
+names(dffemale) = c("country", 'cc', 'year','pri.per.f')
+names(dfmale) = c("country", 'cc', 'year','pri.per.m')
+names(dfpov) = c("country", 'cc', 'year','pov.per')
+
+dfall <- inner_join(dffemale,dfmale,by = c("cc" = "cc", "year" = "year", "country" = "country"))
+dfall <- inner_join(dfall,dfpov,by = c("cc" = "cc", "year" = "year", "country" = "country"))
+dfall$pri.dif.mf = dfall$pri.per.m - dfall$pri.per.f
+dfall$year <- as.numeric(substr(dfall$year,2,5))
+
+```
+
+
+### Research question 
+
+**You should phrase your research question in a way that matches up with the scope of inference your dataset allows for.**
+
+Is there a difference in average poverty rates for countries with a large gender disparity in education?
+
+
+### Cases 
+
+**What are the cases, and how many are there?**   
+Each case consists of a country's yearly percentage of female and male students completing primary education and the poverty ratio (<= $1.09/day).  
+There are `r nrow(dfall)` complete observations 
+
+### Data collection 
+
+**Describe the method of data collection.**
+
+Yearly country primary school completion and poverty level data was extracted from the Worldbank Wold Development Indicators database which provides the following description: 
+"World Development Indicators (WDI) is the primary World Bank collection of development indicators, compiled from officially recognized international sources. It presents the most current and accurate global development data available, and includes national, regional and global estimates."
+
+Data series extracted from the World Data Bank were:
+
+SE.PRM.CMPT.FE.ZS = Primary completion rate, female (% of relevant age group)  
+Source:  United Nations Educational, Scientific, and Cultural Organization (UNESCO) Institute for Statistics.
+Description:  
+Primary completion rate, or gross intake ratio to the last grade of primary education, is the number of new entrants (enrollments minus repeaters) in the last grade of primary education, regardless of age, divided by the population at the entrance age for the last grade of primary education. Data limitations preclude adjusting for students who drop out during the final year of primary education.
+
+SE.PRM.CMPT.MA.ZS = Primary completion rate, male (% of relevant age group)  
+Source:  United Nations Educational, Scientific, and Cultural Organization (UNESCO) Institute for Statistics.
+Description:  
+Primary completion rate, or gross intake ratio to the last grade of primary education, is the number of new entrants (enrollments minus repeaters) in the last grade of primary education, regardless of age, divided by the population at the entrance age for the last grade of primary education. Data limitations preclude adjusting for students who drop out during the final year of primary education.
+
+SI.POV.DDAY = Poverty headcount ratio at $1.90 a day (2011 PPP) (% of population)  
+Source:  
+World Bank, Development Research Group. Data are based on primary household survey data obtained from government statistical agencies and World Bank country departments. Data for high-income economies are from the Luxembourg Income Study database. For more information and methodology, please see PovcalNet (http://iresearch.worldbank.org/PovcalNet/index.htm).
+Description:  
+Poverty headcount ratio at $1.90 a day is the percentage of the population living on less than $1.90 a day at 2011 international prices. As a result of revisions in PPP exchange rates, poverty rates for individual countries cannot be compared with poverty rates reported in earlier editions. Note that five countries -- Bangladesh, Cabo Verde, Cambodia, Jordan, and Lao PDR -- use the 2005 PPP exchange rates and poverty lines.
+
+
+
+### Type of study 
+
+**What type of study is this (observational/experiment)?**
+This is an observational study because I am using data that has already been collected and am not conducting a new experiment.
+
+### Data Source 
+
+**If you collected the data, state self-collected. If not, provide a citation/link.** 
+http://databank.worldbank.org/data/reports.aspx?source=world-development-indicators  
+
+### Response 
+
+**What is the response variable, and what type is it (numerical/categorical)?**
+The response variable is the poverty rate, it is numerical.
+
+### Explanatory 
+
+**What is the explanatory variable, and what type is it (numerical/categorival)?**
+The explanatory variable is the difference between the % of females vs. % of males completing primary education. Depending on how I structure the test this could be numerical, or it may be categorical I divide the differences into categories such as < -5% difference or > 5% difference
+
+### Relevant summary statistics 
+
+**Provide summary statistics relevant to your research question. For example, if you’re comparing means across groups provide means, SDs, sample sizes of each group. This step requires the use of R, hence a code chunk is provided below. Insert more code chunks as needed.**
+
+Summary statistics for numerical values
+```{r}
+#Numerical Values
+#Mean
+sapply(dfall[,4:7], mean, na.rm=TRUE) 
+#Standard Deviation
+sapply(dfall[,4:7], sd, na.rm=TRUE)
+
+summary(dfall)
+
+# Summary avg. by year
+dfall.year <- dfall%>%select(year,pov.per)%>%
+  group_by(year)%>%summarise(avg.pov = mean(pov.per))
+```
+
+Distribution of male vs. female percent primary completion observations
+```{r}
+
+library(ggplot2)
+par(mfrow=c(1,2), las=1)
+ggplot(dfall,aes(x=pri.per.f)) +
+    geom_histogram(fill = "red", alpha = 0.2,binwidth = 2)
+ggplot(dfall,aes(x = pri.per.m))+
+    geom_histogram(fill = "blue", alpha = 0.2, binwidth = 2) 
+ggplot(dfall,aes(x = pri.dif.mf))+
+    geom_histogram(fill = "purple", alpha = 0.2, binwidth = 2)
+ggplot(dfall,aes(x = pov.per))+
+    geom_histogram(fill = "green", alpha = 0.2, binwidth = 2) 
+
+```
+
